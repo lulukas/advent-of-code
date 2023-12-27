@@ -1,0 +1,17 @@
+{
+  "type": "module",
+  "name": "adventOfCode",
+  "version": "1.0.0",
+  "description": "adventOfCode is coding challange in dezember",
+  "main": "index.js",
+  "repository": "https://github.com/lulukas/advent-of-code.git",
+  "author": "Lukas Klier",
+  "license": "MIT",
+  "scripts": {
+    "test": "node index.js test.txt",
+    "start": "node index.js real.txt"
+  },
+  "dependencies": {
+    "mathjs": "^12.2.1"
+  }
+}
