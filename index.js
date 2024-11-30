@@ -1,12 +1,14 @@
 import { solutions as solutions2022 } from './2022/solutions.js'
 import { solutions as solutions2023 } from './2023/solutions.js'
-import { formatDuration, printPart1, printPart2, printResult, printTitle } from './utils/consoleUtils.js'
+import { solutions as solutions2024 } from './2024/solutions.js'
+import { formatDuration, printResult, printTitle } from './utils/consoleUtils.js'
 
-const [, , fileName, day, year = 2023] = process.argv
+const [, , fileName, day, year = 2024] = process.argv
 
 const solutions = {
   2022: solutions2022,
   2023: solutions2023,
+  2024: solutions2024,
 }
 
 const [solutionPart1, solutionPart2] = solutions[year][day]
