@@ -41,3 +41,9 @@ export const printField = (string, field) => {
     console.log(element)
   })
 }
+export const printFieldArray = (string, field) => {
+  console.log('🚀 ~ file: utils.js:39 ~ printField ~ string:', string)
+  field.forEach((element) => {
+    console.log(element.join())
+  })
+}
