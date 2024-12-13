@@ -84,14 +84,9 @@ const getCheapestClicksV2 = ([ax, ay, bx, by, px, py]) => {
 }
 
 const getCheapestClicksV3 = ([ax, ay, bx, by, px, py]) => {
-  let a = Math.round((px / bx - py / by) / (ax / bx - ay / by))
-  let b = Math.round((px / ax - py / ay) / (bx / ax - by / ay))
-
-  if (a * ax + b * bx === px && a * ay + b * by === py) {
-    return 3 * a + b
-  }
-
-  return 0
+  const a = Math.round((px / bx - py / by) / (ax / bx - ay / by))
+  const b = Math.round((px / ax - py / ay) / (bx / ax - by / ay))
+  return a * ax + b * bx === px && a * ay + b * by === py ? 3 * a + b : 0
 }
 
 export const getPart1 = (filePath) =>
