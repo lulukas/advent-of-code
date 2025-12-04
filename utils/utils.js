@@ -41,6 +41,7 @@ export const printField = (string, field) => {
     console.log(element)
   })
 }
+
 export const printFieldArray = (string, field) => {
   console.log(string)
   field.forEach((element) => {
