@@ -1,5 +1,6 @@
-import { i, min, re } from 'mathjs'
+import { count, min, re } from 'mathjs'
 import { getLines } from '../../utils/fileStreamUtils.js'
+import { memoize } from '../../utils/utils.js'
 
 export const getPart1 = (filePath) => {
   const lines = getLines(filePath)
@@ -52,44 +53,68 @@ const getButtonPressesForJoltage = (line) => {
     .map((m) => m[1])[0]
     .split(',')
     .map(Number)
-  const buttons = [...line.matchAll(/\(([^)]*)\)/g)].map((m) => m[1].split(',').map(Number))
+  let buttons = [...line.matchAll(/\(([^)]*)\)/g)]
+    .map((m) => m[1].split(',').map(Number))
+    .sort((a, b) => b.length - a.length)
 
-  let result = 0
+  const buttonsAffectingIndex = []
 
-  const recurse = (target, buttons, presses) => {
-    if (target.every((t) => t === 0)) {
-      result = presses
-      return presses
-    }
-
-    const minTargetSize = Math.min(...target.filter((t) => t > 0))
-    const minTargetIndex = target.findIndex((t) => t === minTargetSize)
-    const buttonIndex = buttons.findIndex((b) => b.includes(minTargetIndex))
-
-    const button = buttons[buttonIndex]
-    const remainingButtons = buttons.filter((_, idx) => idx !== buttonIndex)
-
-    if (buttonIndex === -1) {
-      return 0
-    }
-
-    for (let i = minTargetSize; i >= 0; i--) {
-      if (
-        recurse(
-          target.map((t, idx) => (button.includes(idx) ? t - i : t)),
-          remainingButtons,
-          presses + i
-        ) > 0
-      ) {
-        return presses + i
-      }
-    }
-
-    return 0
+  for (let i = 0; i < target.length; i++) {
+    buttonsAffectingIndex[i] = buttons.filter((b) => b.includes(i))
+    buttons = buttons.filter((b) => !b.includes(i))
   }
 
-  recurse(target, buttons, 0)
-  return result
+  const table = Array(target.length + 1)
+    .fill(0)
+    .map(() => [])
+  table[0] = ['0:' + target.join(',')]
+
+  for (let i = 0; i < target.length; i++) {
+    for (let state of table[i]) {
+      const [pressesStr, ...joltageStrs] = state.split(':')
+      const presses = Number(pressesStr)
+      const joltage = joltageStrs[0].split(',').map(Number)
+      const newCombinations = findAllCombinations(presses, joltage, i, buttonsAffectingIndex[i])
+      for (let combo of newCombinations) {
+        let tableIndex = combo.joltage.findIndex((t) => t > 0)
+        const comboStr = combo.presses + ':' + combo.joltage.join(',')
+        if (tableIndex === -1) {
+          tableIndex = table.length - 1
+        }
+        if (!table[tableIndex].includes(comboStr)) {
+          table[tableIndex].push(comboStr)
+        }
+      }
+      console.log('🚀 ~ getButtonPressesForJoltage ~ table:', table)
+    }
+  }
+
+  return table[table.length - 1].map((s) => Number(s.split(':')[0])).sort((a, b) => a - b)[0]
+}
+
+const findAllCombinations = (presses, joltage, index, buttons) => {
+  const newPresses = joltage[index]
+  const results = []
+  let queue = [joltage]
+
+  for (let i = 0; i < buttons.length; i++) {
+    let newQueue = []
+    for (let jol of queue) {
+      const button = buttons[i]
+      const maxPresses = Math.min(...jol.filter((t, idx) => button.includes(idx)))
+      for (let pressesCount = maxPresses; pressesCount >= 0; pressesCount--) {
+        const newJoltage = jol.map((t, idx) => (button.includes(idx) ? t - pressesCount : t))
+        if (newJoltage[index] === 0) {
+          results.push({ presses: presses + newPresses, joltage: newJoltage })
+        } else {
+          newQueue.push(newJoltage)
+        }
+      }
+    }
+    queue = [...newQueue]
+  }
+
+  return results
 }
 
 const getButtonPressesForJoltage2 = (line) => {
@@ -97,50 +122,125 @@ const getButtonPressesForJoltage2 = (line) => {
     .map((m) => m[1])[0]
     .split(',')
     .map(Number)
-  const buttons = [...line.matchAll(/\(([^)]*)\)/g)].map((m) => m[1].split(',').map(Number))
-  const visited = new Set()
-  let toCheck = [
-    {
-      joltage: Array(target.length).fill(0),
-      presses: 0,
-      buttons: [...buttons],
-    },
-  ]
+  const buttons = [...line.matchAll(/\(([^)]*)\)/g)]
+    .map((m) => m[1].split(',').map(Number))
+    .sort((a, b) => b.length - a.length)
 
-  while (toCheck.length > 0) {
-    const newToCheck = []
-    for (let panel of toCheck) {
-      for (let i = 0; i < panel.buttons.length; i++) {
-        let button = [...panel.buttons[i]]
-        button.pressed += 1
-        let newJoltage = panel.joltage.map((l, idx) => (button.includes(idx) ? l + 1 : l))
-        let incorrectJoltageIndexes = []
-        for (let j = 0; j < newJoltage.length; j++) {
-          if (newJoltage[j] !== target[j]) {
-            incorrectJoltageIndexes.push(j)
-          }
-        }
+  let count = 0
+  const queue = [{ joltage: target, presses: [] }]
+  while (queue.length > 0) {
+    const { joltage, presses } = queue.shift()
 
-        if (incorrectJoltageIndexes.length === 0) {
-          return panel.presses + 1
-        }
+    const minTargetSize = Math.min(...joltage.filter((t) => t > 0))
+    count++
+    const minTargetIndexs = joltage.map((t, idx) => (t === minTargetSize ? idx : -1)).filter((idx) => idx >= 0)
 
-        if (visited.has(newJoltage.join(','))) {
-          continue
-        }
-        visited.add(newJoltage.join(','))
+    const filteredButtons = buttons.filter((b) => b.some((idx) => minTargetIndexs.includes(idx)))
 
-        let newButtons = [...panel.buttons.filter((b) => b.every((idx) => incorrectJoltageIndexes.includes(idx)))]
-
-        newToCheck.push({
-          joltage: newJoltage,
-          presses: panel.presses + 1,
-          buttons: newButtons,
-        })
+    for (let button of filteredButtons) {
+      const newJoltage = joltage.map((t, idx) => (button.includes(idx) ? t - minTargetSize : t))
+      if (newJoltage.every((t) => t === 0)) {
+        console.log('🚀 ~ getButtonPressesForJoltage ~ count:', count)
+        const newPresses = [...presses, ...Array(minTargetSize).fill(button)]
+        return newPresses.length
+      }
+      if (newJoltage.some((t) => t < 0)) {
+        const newPresses = [...presses]
+        newPresses.shift()
+        queue.push({ joltage: newJoltage, presses: newPresses })
+      } else {
+        const newPresses = [...presses, ...Array(minTargetSize).fill(button)]
+        queue.push({ joltage: newJoltage, presses: newPresses })
       }
     }
-    toCheck = [...newToCheck]
+    queue.sort((a, b) => a.presses.length - b.presses.length)
+  }
+  console.log('🚀 ~ getButtonPressesForJoltage ~ filteredButtons.length === 0')
+
+  return -1
+}
+
+const getButtonPressesForJoltage3 = (line) => {
+  const target = [...line.matchAll(/\{([^}]*)\}/g)]
+    .map((m) => m[1])[0]
+    .split(',')
+    .map(Number)
+  const initButtons = [...line.matchAll(/\(([^)]*)\)/g)]
+    .map((m) => m[1].split(',').map(Number))
+    .sort((a, b) => b.length - a.length)
+
+  let count = 0
+
+  const recurse = (target, buttons) => {
+    count++
+    if (target.every((t) => t === 0)) {
+      return 0
+    }
+
+    if (buttons.length < 1) {
+      return -1
+    }
+
+    if (
+      buttons.some(
+        (b, i) =>
+          b.every((idx) => !buttons.some((nb, ni) => ni !== i && nb.includes(idx))) &&
+          target.some((t, ti) => b.includes(ti) && t !== target[b[0]])
+      )
+    ) {
+      return -1
+    }
+
+    for (let i = 0; i < target.length - 1; i++) {
+      if (target[i] === 0) continue
+      for (let j = i + 1; j < target.length; j++) {
+        if (target[i] !== target[j]) {
+          if (buttons.every((b) => b.includes(i) === b.includes(j))) {
+            return -1
+          }
+        }
+      }
+    }
+
+    const minTargetSize = Math.min(...target.filter((t) => t > 0))
+    const minTargetIndexs = target.map((t, idx) => (t === minTargetSize ? idx : -1)).filter((idx) => idx >= 0)
+    const minTargetIndex = minTargetIndexs[0]
+
+    const buttonIndexsAffectingMinTarget = buttons
+      .map((b, i) => (b.includes(minTargetIndex) ? i : -1))
+      .filter((i) => i >= 0)
+
+    if (buttonIndexsAffectingMinTarget.length === 0) {
+      return -1
+    }
+
+    return buttonIndexsAffectingMinTarget
+      .map((buttonIndexAffectingMinTarget) =>
+        getMinButtonPresses(target, minTargetSize, buttons, buttonIndexAffectingMinTarget)
+      )
+      .reduce((a, b) => (a >= 0 && b >= 0 ? Math.min(a, b) : a >= 0 ? a : b), -1)
   }
 
-  return 0
+  const getMinButtonPresses = (target, minTargetSize, buttons, buttonIndexAffectingMinTarget) => {
+    const button = buttons[buttonIndexAffectingMinTarget]
+    buttons = buttons.filter((b, i) => i !== buttonIndexAffectingMinTarget)
+
+    for (let i = minTargetSize; i >= 0; i--) {
+      const newTarget = target.map((t, idx) => (button.includes(idx) ? t - i : t))
+      const newButtons = buttons.filter((b) => b.every((idx) => newTarget[idx] > 0))
+
+      const res = recurse(newTarget, newButtons)
+      if (res >= 0) {
+        return res + i
+      }
+
+      if (newTarget.some((t) => t > 0 && !buttons.some((b) => b.includes(newTarget.indexOf(t))))) {
+        return -1
+      }
+    }
+    return -1
+  }
+
+  let result = recurse(target, initButtons)
+  return result
 }
